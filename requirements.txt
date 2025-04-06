@@ -6,3 +6,4 @@ gtts
 deep-translator
 Flask-Cors
 Flask-SocketIO
+gunicorn
