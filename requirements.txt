@@ -1,0 +1,8 @@
+Flask
+google-generativeai
+langchain
+pandas
+gtts
+deep-translator
+Flask-Cors
+Flask-SocketIO

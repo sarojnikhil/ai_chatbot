@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Language Tutor</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        .chat-container {
+            width: 500px;
+            height: 600px;
+            background: white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-box {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            max-width: 80%;
+        }
+        .user-message {
+            align-self: flex-end;
+            background: #007bff;
+            color: white;
+        }
+        .bot-message {
+            align-self: flex-start;
+            background: #e0e0e0;
+        }
+        .input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background: white;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin-left: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+        }
+        .action-buttons button {
+            flex: 1;
+            margin: 5px;
+            background: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box">
+            <div class="bot-message message">🤖 Welcome! Type 'new' to start learning a new language.</div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+        <div class="action-buttons">
+            <button onclick="checkMistakes()">Check Mistakes</button>
+            <button onclick="getFeedback()">Get Feedback</button>
+            <button onclick="textToSpeech()">🎵</button>
+            <button onclick="stopSpeech()">⏹</button>
+            <button onclick="clearChat()">🗑</button>
+        </div>
+    </div>
+    
+    <script>
+        var userData = {};
+        var currentStep = 0;
+        var currentAudio = null;
+        var questions = [
+            "🌍 What language do you want to learn?",
+            "🗣 What is your native language?",
+            "📊 What is your current level? (Beginner, Intermediate, Advanced)",
+            "🎙 Speech speed? (normal, slow)",
+            "🔄 Include English translation? (yes, no)"
+        ];
+        var keys = ["language", "nativeLanguage", "level", "speechSpeed", "translation"];
+        
+        function addMessage(text, isUser = false) {
+            var message = document.createElement("div");
+            message.classList.add("message", isUser ? "user-message" : "bot-message");
+            message.textContent = text;
+            document.getElementById("chat-box").appendChild(message);
+            document.getElementById("chat-box").scrollTop = document.getElementById("chat-box").scrollHeight;
+        }
+        
+        function askNextQuestion() {
+            if (currentStep < questions.length) {
+                addMessage("🤖 " + questions[currentStep]);
+            } else {
+                addMessage("✅ All set! Now type your message.");
+            }
+        }
+        
+        $(document).ready(function() { askNextQuestion(); });
+        
+        function sendMessage() {
+            var message = $("#userInput").val().trim();
+            if (message === "") return;
+            addMessage(message, true);
+            $("#userInput").val("");
+            
+            if (currentStep < questions.length) {
+                userData[keys[currentStep]] = message;
+                currentStep++;
+                askNextQuestion();
+            } else {
+                userData.message = message;
+                $.ajax({
+                    url: "/chat",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(userData),
+                    success: function(data) {
+                        addMessage("🤖 " + data.response);
+                    }
+                });
+            }
+        }
+        function checkMistakes() {
+    var sentence = prompt("Enter a new sentence in your target language:");
+    if (sentence) {
+        addMessage("✍️ Checking: " + sentence, true); // Show user input in chat
+        $.ajax({
+            url: "/mistakes",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ sentence: sentence }),
+            success: function(data) {
+                addMessage("📌 Correction: " + data.correction);
+            }
+        });
+    } else {
+        alert("No sentence entered. Please try again.");
+    }
+}
+
+function getFeedback() {
+    $.ajax({
+        url: "/feedback",
+        type: "GET",
+        success: function(data) {
+            addMessage("📝 Feedback: " + data.feedback);
+        }
+    });
+}
+
+        function textToSpeech() {
+            var text = document.getElementById("chat-box").lastChild.textContent;
+            $.ajax({
+                url: "/tts",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ text: text }),
+                success: function(data) {
+                    if (currentAudio) currentAudio.pause();
+                    currentAudio = new Audio(data.audio);
+                    currentAudio.play();
+                }
+            });
+        }
+        
+        function stopSpeech() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            speechSynthesis.cancel();
+        }
+        
+        function clearChat() {
+            $("#chat-box").html('<div class="bot-message message">🤖 Welcome! Type "new" to start learning a new language.</div>');
+        }
+    </script>
+</body>
+</html>
